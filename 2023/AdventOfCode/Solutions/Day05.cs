@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 
 namespace AdventOfCode.Solutions
 {
@@ -9,7 +10,8 @@ namespace AdventOfCode.Solutions
         private List<Map> _transformations;
         private List<long> _seeds;
         private Regex _digitRx = new(@"\d+");
-        private Dictionary<long, long> _cache = new Dictionary<long, long>();
+        private ConcurrentDictionary<long, long> _cache = new ConcurrentDictionary<long, long>();
+        private ProgressReporter _processedRecords = new ProgressReporter(0);
         private record TransformationRange(long DestinationRangeStart, long SourceRangeStart, long RangeLength)
         {
             public bool CanTransform(long input) => input >= SourceRangeStart && input <= SourceRangeStart + RangeLength;
@@ -41,45 +43,50 @@ namespace AdventOfCode.Solutions
             return new Map(mapTypes.Groups[1].Value, mapTypes.Groups[2].Value, transformationRanges);
         }
 
-        private long MinimumLocation(List<long> seeds)
+        private async Task<long> MinimumLocation(List<long> seeds)
         {
-            var min = long.MaxValue;
-            for (var i = 0; i < seeds.Count; i++) 
+            _processedRecords = new ProgressReporter(seeds.Count, (count) =>
             {
-                var cacheKey = seeds[i];
-                var seed = seeds[i];
-                if (_cache.ContainsKey(cacheKey))
-                {
-                    min = _cache[seed] < min ? _cache[seed] : min;
-                    continue;
-                }
+                var percentage = (int)(((double)count / (double)seeds.Count) * 100d);
+                Console.WriteLine($"Processed {count} records out of {seeds.Count} ({percentage})%");
+            });
 
-                _transformations.ForEach(transformation =>
+            var tasks = seeds.Select(seed =>
+            {
+                return Task.Run(() =>
                 {
-                    var transformationRange = transformation
-                        .TransformationRanges
-                        .FirstOrDefault(x => x.CanTransform(seed));
+                    var cacheKey = seed;
+                    if (_cache.ContainsKey(cacheKey))
+                        return _cache[cacheKey];
 
-                    if (transformationRange is not null)
-                        seed = transformationRange.Transform(seed);
+                    _transformations.ForEach(transformation =>
+                    {
+                        var transformationRange = transformation
+                            .TransformationRanges
+                            .FirstOrDefault(x => x.CanTransform(seed));
+
+                        if (transformationRange is not null)
+                            seed = transformationRange.Transform(seed);
+                    });
+                    if (!_cache.ContainsKey(cacheKey))
+                        _cache.TryAdd(cacheKey, seed);
+                    _processedRecords.Report();
+                    return seed;
                 });
+            });
 
-                if (min > seed) min = seed;
-
-                if (!_cache.ContainsKey(cacheKey)) 
-                    _cache.Add(seeds[i], seed);
-
-                var percent = (int)(((double)(i + 1) / (double)seeds.Count) * 100d);
-                Console.WriteLine($"processed seed {i + 1} out of {seeds.Count} ({percent}%) current min: {min}");
-            }
-            return min;
+            return (await Task.WhenAll(tasks)).Min();
         }
 
         public object Part1() =>
-            MinimumLocation(_seeds);
+            MinimumLocation(_seeds)
+            .GetAwaiter()
+            .GetResult();
 
         //public object Part2() => MinimumLocation(_seeds.Chunk(2).SelectMany(x => CreateRange(x.First(), x.Last())).ToList());
-        public object Part2() => MinimumLocation(_seeds.Chunk(2).OrderBy(x => x[0]).SelectMany(x => CreateRange(x.First(), x.Last())).ToList());
+        public object Part2() => MinimumLocation(_seeds.Chunk(2).OrderBy(x => x[0]).SelectMany(x => CreateRange(x.First(), x.Last())).ToList())
+            .GetAwaiter()
+            .GetResult();
         
         private static IEnumerable<long> CreateRange(long start, long count)
         {
