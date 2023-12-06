@@ -2,7 +2,6 @@
 
 namespace AdventOfCode.Solutions
 {
-    [RunSolution]
     public class Day05 : BaseSolution, ISolution
     {
         public int Day => 5;
