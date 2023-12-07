@@ -30,12 +30,36 @@ public class Day07 : BaseSolution, ISolution
         };
     }
 
-    abstract record BaseHand(Card[] Cards, long Bid) : IComparable
+    class Hand : IComparable
     {
         protected HandType HandType { get; init; }
+        public Card[] Cards { get; }
+        public bool TreatJAsWild { get; }
+        public long Bid { get; }
+
+        public Hand(Card[] cards, long bid, bool treatJAsWild)
+        {
+            Bid = bid;
+            Cards = cards;
+            TreatJAsWild = treatJAsWild;
+            var uniqueCards = cards.Where(x => !treatJAsWild || x.CharCard is not 'J')
+                .GroupBy(x => x.Value())
+                .Select(x => x.Concat(cards.Where(x => treatJAsWild && x.CharCard is 'J')))
+                .ToList();
+
+            HandType = treatJAsWild && cards.Count(x => x.CharCard is 'J') is 5 ? HandType.FiveOfAKind : uniqueCards.Count switch
+            {
+                1 => HandType.FiveOfAKind,
+                2 => uniqueCards.Any(x => x.Count() is 4) ? HandType.FourOfAKind : HandType.FullHouse,
+                3 => uniqueCards.Any(x => x.Count() is 3) ? HandType.ThreeOfAKind : HandType.TwoPair,
+                4 => HandType.OnePair,
+                _ => HandType.HighCard
+            };
+        }
+
         public int CompareTo(object? obj)
         {
-            if (obj is not BaseHand otherHand)
+            if (obj is not Hand otherHand)
                 throw new Exception("Invalid comparison");
 
             if (HandType != otherHand.HandType)
@@ -43,11 +67,11 @@ public class Day07 : BaseSolution, ISolution
 
             for (var i = 0; i < Cards.Length; i++)
             {
-                if (Cards[i].Value(this is HandWithWilds) == otherHand.Cards[i].Value(this is HandWithWilds))
+                if (Cards[i].Value(TreatJAsWild) == otherHand.Cards[i].Value(TreatJAsWild))
                     continue;
 
-                return otherHand.Cards[i].Value(this is HandWithWilds)
-                    .CompareTo(Cards[i].Value(this is HandWithWilds));
+                return otherHand.Cards[i].Value(TreatJAsWild)
+                    .CompareTo(Cards[i].Value(TreatJAsWild));
             }
 
             throw new Exception("Should not have duplicates");
@@ -59,56 +83,12 @@ public class Day07 : BaseSolution, ISolution
         }
     }
 
-    record Hand : BaseHand
-    {
-        public Hand(Card[] cards, long bid) : base(cards, bid)
-        {
-            var uniqueCards = cards.GroupBy(x => x.Value()).ToList();
-            HandType = uniqueCards.Count switch
-            {
-                1 => HandType.FiveOfAKind,
-                2 => uniqueCards.First().Count() switch
-                {
-                    4 or 1 => HandType.FourOfAKind,
-                    _ => HandType.FullHouse
-                },
-                3 => uniqueCards.Any(x => x.Count() == 3) ? HandType.ThreeOfAKind : HandType.TwoPair,
-                4 => HandType.OnePair,
-                _ => HandType.HighCard
-            };
-        }
-
-        public override string ToString() => base.ToString();
-    }
-
-    record HandWithWilds : BaseHand
-    {
-        public HandWithWilds(Card[] cards, long bid) : base(cards, bid)
-        {
-            var uniqueCards = cards.GroupBy(x => x.Value(true)).ToList();
-            var wildCards = cards.Count(x => x.CharCard == 'J');
-            HandType = uniqueCards.Count switch
-            {
-                1 => HandType.FiveOfAKind,
-                2 when wildCards is 1 => HandType.FiveOfAKind,
-                2 => uniqueCards.First().Count() switch
-                {
-                    4 or 1 => HandType.FourOfAKind,
-                    _ => HandType.FullHouse
-                },
-                3 => uniqueCards.Any(x => x.Count() == 3) ? HandType.ThreeOfAKind : HandType.TwoPair,
-                4 => HandType.OnePair,
-                _ => HandType.HighCard
-            };
-        }
-    }
-
     public Day07() : base("Inputs/Day07.txt")
     { }
 
     public int Day => 7;
 
-    private long SortAndGetSum(List<BaseHand> hands)
+    private long SortAndGetSum(List<Hand> hands)
     {
         var sorted = hands
             .OrderByDescending(x => x)
@@ -120,14 +100,14 @@ public class Day07 : BaseSolution, ISolution
     }
 
     public object Part1() => SortAndGetSum(Lines.Select(line =>
-        {
-            var parts = line.Split(' ');
-            return new Hand(parts.First().Select(x => new Card(x)).ToArray(), int.Parse(parts[1])) as BaseHand;
-        }).ToList());
+    {
+        var parts = line.Split(' ');
+        return new Hand(parts.First().Select(x => new Card(x)).ToArray(), int.Parse(parts[1]), false);
+    }).ToList());
 
     public object Part2() => SortAndGetSum(Lines.Select(line =>
     {
         var parts = line.Split(' ');
-        return new HandWithWilds(parts.First().Select(x => new Card(x)).ToArray(), int.Parse(parts[1])) as BaseHand;
+        return new Hand(parts.First().Select(x => new Card(x)).ToArray(), int.Parse(parts[1]), true);
     }).ToList());
 }

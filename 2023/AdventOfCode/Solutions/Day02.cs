@@ -2,8 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace AdventOfCode.Solutions;
 
-public class Day02 : BaseSolution, ISolution
+public partial class Day02 : BaseSolution, ISolution
 {
+    public int Day => 2;
+
     public Day02() : base("Inputs/Day02.txt")
     { }
 

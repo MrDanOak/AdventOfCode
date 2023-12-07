@@ -4,6 +4,8 @@ namespace AdventOfCode.Solutions;
 
 public class Day01 : BaseSolution, ISolution
 {
+    public int Day => 1;
+
     public Day01() : base("Inputs/Day01.txt")
     { }
 

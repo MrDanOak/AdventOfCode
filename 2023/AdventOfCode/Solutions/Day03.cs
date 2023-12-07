@@ -1,9 +1,11 @@
 using System.Text.RegularExpressions;
 
-namespace DanDecrypted.AdventOfCode.Solutions;
+namespace AdventOfCode.Solutions;
 
 public partial class Day03 : BaseSolution, ISolution
 {
+    public int Day => 3;
+
     public Day03() : base("Inputs/Day03.txt")
     { }
 
@@ -17,8 +19,8 @@ public partial class Day03 : BaseSolution, ISolution
 
     public object Part1() 
     {
-        var parts = GetParts(Lines, new Regex(@"\d+")).ToList();
-        var symbols = GetParts(Lines, new Regex(@"[^.0-9]")).ToList();
+        var parts = GetParts([.. Lines], new Regex(@"\d+")).ToList();
+        var symbols = GetParts([.. Lines], new Regex(@"[^.0-9]")).ToList();
         return parts
             .Where(part => symbols.Any(s => s.IsNeighbour(part)))
             .Select(part => part.PartNo())
@@ -27,8 +29,8 @@ public partial class Day03 : BaseSolution, ISolution
 
     public object Part2()
     {
-        var parts = GetParts(Lines, new Regex(@"\d+")).ToList();
-        var gears = GetParts(Lines, new Regex(@"\*")).ToList();
+        var parts = GetParts([.. Lines], new Regex(@"\d+")).ToList();
+        var gears = GetParts([.. Lines], new Regex(@"\*")).ToList();
         return gears
             .Select(gear => { 
                 var neighbours = parts.Where(p => p.IsNeighbour(gear)).ToList();
