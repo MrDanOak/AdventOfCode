@@ -1,8 +1,5 @@
-﻿using System.Reflection.Metadata;
+﻿namespace AdventOfCode.Solutions;
 
-namespace AdventOfCode.Solutions;
-
-[RunSolution]
 public class Day07 : BaseSolution, ISolution
 {
     enum HandType
