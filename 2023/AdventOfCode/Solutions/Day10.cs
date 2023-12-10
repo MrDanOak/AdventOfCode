@@ -14,6 +14,11 @@ namespace AdventOfCode.Solutions
             Down
         }
 
+        record Path(List<Pipe> Pipes)
+        {
+            public Direction? CurrentDirection { get; set; } = null;
+        }
+
         record Pipe(char SourceChar, int X, int Y) 
         {
             public Direction[] Connectors = SourceChar switch 
@@ -27,15 +32,27 @@ namespace AdventOfCode.Solutions
                 _ => []
             };
 
-            public IEnumerable<Pipe> ConnectingPipes(List<Pipe> pipes) => 
-                pipes.Where(pipe => 
-                    pipe.X == X - 1 && pipe.Y == Y && pipe.Connectors.Any(connector => connector == Direction.Right) ||
-                    pipe.X == X + 1 && pipe.Y == Y && pipe.Connectors.Any(connector => connector == Direction.Left) ||
-                    pipe.Y == Y - 1 && pipe.X == X && pipe.Connectors.Any(connector => connector == Direction.Down) || 
-                    pipe.Y == Y + 1 && pipe.X == X && pipe.Connectors.Any(connector => connector == Direction.Up)
-                );
+            public bool ConnectsTo(Pipe otherPipe, Direction? excluding) => 
+                ((IsAnimal || (excluding != Direction.Left && Connectors.Contains(Direction.Left))) && (otherPipe.Connectors.Contains(Direction.Right) || otherPipe.IsAnimal) && X == otherPipe.X + 1 && Y == otherPipe.Y) ||
+                ((IsAnimal || (excluding != Direction.Right && Connectors.Contains(Direction.Right))) && (otherPipe.Connectors.Contains(Direction.Left) || otherPipe.IsAnimal) && X == otherPipe.X - 1 && Y == otherPipe.Y) || 
+                ((IsAnimal || (excluding != Direction.Down && Connectors.Contains(Direction.Down))) && (otherPipe.Connectors.Contains(Direction.Up) || otherPipe.IsAnimal) && Y == otherPipe.Y - 1 && X == otherPipe.X) ||
+                ((IsAnimal || (excluding != Direction.Up && Connectors.Contains(Direction.Up))) && (otherPipe.Connectors.Contains(Direction.Down) || otherPipe.IsAnimal) && Y == otherPipe.Y + 1 && X == otherPipe.X);
 
-            public bool IsAnimal = SourceChar == 's';
+            public Direction? DirectionFrom(Pipe otherPipe)
+            {
+                if (otherPipe == this) return null;
+                var direction = otherPipe.X < X ? Direction.Left : 
+                    otherPipe.X > X ? Direction.Right :
+                    otherPipe.Y < Y ? Direction.Up :
+                    otherPipe.Y > Y ? Direction.Down : 
+                    (Direction?)null;
+
+                return direction;
+            }
+
+            public bool IsAnimal = SourceChar == 'S';
+
+            public override string ToString() => $"X: {X} Y: {Y} Char: {SourceChar} {(Connectors.Length != 0 ? $"Connectors: {string.Join(", ", Connectors)}" : "")}";
         }
 
         private List<Pipe> _pipes;
@@ -53,39 +70,47 @@ namespace AdventOfCode.Solutions
 
         public object Part1() 
         {
-            var startPath = _pipes.Where(x => x.IsAnimal).ToList();
-            var allPaths = new List<List<Pipe>>();
-            allPaths.Add(startPath);
-            while(!allPaths.Any(x => x.Count(y => y.IsAnimal) == 2))
+            var startPath = new Path(_pipes.Where(x => x.IsAnimal).ToList());
+            var allPaths = new List<Path> { startPath };
+            var pathsLoopedRoundToAnimal = new List<Path>();
+
+            while (pathsLoopedRoundToAnimal.Count == 0 || allPaths.Count > 0)
             {
-                var pathsToAdd = new List<List<Pipe>>();
-                var pathsToRemove = new List<List<Pipe>>();
+                var pathsToAdd = new List<Path>();
+                var pathsToRemove = new List<Path>();
                 foreach(var path in allPaths) 
                 {
-                    var pipe = path.Last();
-                    var connectors = pipe.ConnectingPipes(_pipes).Where(connector => connector.IsAnimal || !path.Contains(connector)).ToList();
+                    var pipe = path.Pipes.Last();
+                    var connectingPipes = _pipes
+                        .Where(otherPipe => pipe.ConnectsTo(otherPipe, path.CurrentDirection))
+                        .ToList();
 
-                    if (connectors.Count == 0)
+                    if (connectingPipes.Count == 0)
                     {
                         pathsToRemove.Add(path);
                     }
 
-                    for (var i = connectors.Count - 1; i >= 0; i--) 
+                    for (var i = connectingPipes.Count - 1; i >= 0; i--) 
                     {
-                        if (i == 0) path.Add(connectors[i]);
-                        else 
+                        if (i == 0)
                         {
-                            var newPath = new List<Pipe>(path);
-                            newPath.Add(connectors[i]);
+                            path.Pipes.Add(connectingPipes[i]);
+                            path.CurrentDirection = connectingPipes[i].DirectionFrom(pipe);
+                        }
+                        else
+                        {
+                            var newPath = new Path(new List<Pipe>(path.Pipes) { connectingPipes[i] })
+                            {
+                                CurrentDirection = connectingPipes[i].DirectionFrom(pipe)
+                            };
                             pathsToAdd.Add(newPath);
                         }
                     }
                 }
-                allPaths.Remove(pathsToRemove);
-                allPaths.Add(pathsToAdd);
+                allPaths.RemoveAll(x => pathsToRemove.Contains(x));
+                allPaths.AddRange(pathsToAdd);
             }
-
-            return 0;
+            return Math.Round(allPaths.Min(x => x.Pipes.Count) / 2d, MidpointRounding.AwayFromZero);
         }
 
         public object Part2() => "";
