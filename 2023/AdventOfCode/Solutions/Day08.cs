@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 
 namespace AdventOfCode.Solutions
 {
-    [RunSolution]
     public class Day08 : BaseSolution, ISolution
     {
         public List<Location> Locations { get; }
