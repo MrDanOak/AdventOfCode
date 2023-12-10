@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Text.RegularExpressions;
 
 namespace AdventOfCode.Solutions
 {
@@ -25,12 +26,12 @@ namespace AdventOfCode.Solutions
 
         public int Day => 8;
 
-        public object Part1()
+        private long PathLength(Location startNode, Func<Location, bool> continueCondition) 
         {
             var onInstruction = 0;
-            var location = Locations.First(x => x.Name == "AAA");
+            var location = startNode;
             var instructions = Lines.First();
-            while (location.Name != "ZZZ")
+            while (continueCondition(location))
             {
                 var goLeft = instructions[onInstruction % instructions.Length] is 'L';
                 location = goLeft ? location.GetLeft(Locations) : location.GetRight(Locations);
@@ -39,26 +40,22 @@ namespace AdventOfCode.Solutions
             return onInstruction;
         }
 
-        public object Part2()
+        static long GreatestCommonDivisor(long a, long b)
         {
-            var onInstruction = 0;
-            var nodes = Locations.Where(x => x.Name.EndsWith('A')).ToList();
-            var instructions = Lines.First();
-            while (!nodes.All(x => x.Name.EndsWith('Z')))
+            long remainder;
+            while (b != 0)
             {
-                if (nodes.Any(x => x.Name.EndsWith('Z')))
-                {
-                    var endsWithZ = nodes.Where(x => x.Name.EndsWith('Z')).ToList();
-                    Console.WriteLine($"[{onInstruction}] {endsWithZ.Count} locations ending with Z:");
-                    endsWithZ.ForEach(Console.WriteLine);
-                }
-
-                var goLeft = instructions[onInstruction % instructions.Length] is 'L';
-                var nextNodes = nodes.Select(y => goLeft ? y.Left : y.Right).ToList();
-                nodes = Locations.Where(x => nextNodes.Contains(x.Name)).ToList();
-                onInstruction++;
+                remainder = a % b;
+                a = b;
+                b = remainder;
             }
-            return onInstruction;
+            return a;
         }
+
+        public object Part1() => PathLength(Locations.First(x => x.Name == "AAA"), (location) => location.Name != "ZZZ");
+
+        public object Part2() => Locations.Where(x => x.Name.EndsWith("A"))
+            .Select(x => PathLength(x, (location) => !location.Name.EndsWith("Z")))
+            .Aggregate((a, b) => a * b / GreatestCommonDivisor(a, b));
     }
 }
